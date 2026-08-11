@@ -47,10 +47,34 @@ IMSLP + OMR + datasets de repertorio graduado.
 - [x] Implementar `midi_io.py` — `translate()` puro (testeado) + `MidiSession`
   (I/O real, necesita hardware, no testeado). Usa `mido.ports.MultiPort`
   con `yield_ports=True` para fusionar varios puertos de entrada.
-- [ ] Integrar `matchmaker` en `diff.py` — probar con un MIDI real
-  (usar algo de `~/Music/BoosterMusicBooks4/` como primer caso de prueba).
+- [x] `diff.py`: `align()` implementado, envuelve `Matchmaker.run()`.
+  **Verificado manualmente** (no en el pytest suite — el motor real jala
+  todo el stack de ML y tarda segundos por corrida, no vale la pena en
+  cada `pytest`) con self-comparison contra
+  `~/Music/BoosterMusicBooks4/Beginner Course/01-StartWithMiddleC.mid`:
+  138 posiciones, progresión monótona correcta. Comando exacto para
+  re-verificar:
+  ```
+  .venv/bin/python3 -c "
+  import sys; sys.path.insert(0, 'src')
+  from pianomatic.diff import align
+  r = align('SCORE.mid', 'SCORE.mid')
+  print(r.path.shape, r.path[:3])
+  "
+  ```
+- [x] **Bug encontrado en pymatchmaker**: el docstring de `Matchmaker.run()`
+  dice que el alignment path tiene shape `(2, N)` — en la práctica es
+  `(N, 2)` (verificado, shape real `(138, 2)`). También: el path de
+  retorno de `run()` (un generador) solo se obtiene vía
+  `StopIteration.value`, no agotando el generador con `list()` — eso
+  descarta silenciosamente el path si no se maneja bien.
+- [ ] Diff por dimensión (timing/pitch/dinámica) en `diff.py`: **no
+  implementado**. `align()` solo da el path de alineación crudo — falta
+  emparejar cada nota de referencia con su contraparte tocada a través del
+  path e implementar los 3 diffs separados (ver ARCHITECTURE.md). Es
+  diseño real, no solo wiring — no apurarlo a medias.
 - [ ] `report.py`: reporte de texto con las 3 dimensiones (timing, pitch,
-  dinámica) separadas.
+  dinámica) separadas — depende del punto anterior.
 - [ ] Decidir rango exacto del Keystation 61es (verificar con hardware
   real qué nota MIDI es la más grave/aguda que reporta — no asumir).
 - [ ] Módulos de lectura a primera vista y oído: aún no empezados,

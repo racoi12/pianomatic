@@ -13,10 +13,11 @@ dependencies = [
     "mido>=1.3",
     "pymatchmaker[devices]>=0.3.0",
     "music21>=9.1",
+    "numpy",
 ]
-# mido and python-rtmidi are also pulled in transitively by
+# mido, python-rtmidi, and numpy are also pulled in transitively by
 # pymatchmaker[devices], but listed explicitly since pianomatic imports
-# them directly in midi_io.py.
+# them directly (midi_io.py, diff.py).
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
