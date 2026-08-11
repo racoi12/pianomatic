@@ -82,6 +82,31 @@ como modificador.
 Implementación: `pianomatic.control` — capa que intercepta el stream MIDI
 crudo ANTES de pasarlo al motor de diff/síntesis.
 
+## Sustain pedal
+
+The Keystation 61es has dedicated sustain AND volume pedal jacks. Pedal
+input arrives as MIDI Control Change (CC64 = damper/sustain), not as note
+events — `midi_io.py`'s event model needs a case for CC messages, not just
+notes.
+
+- **Belongs in the diff engine** (Repertoire pillar), not just notes:
+  pedal timing/duration should be compared against the reference too when
+  the reference has explicit pedal markings. Most naive MIDI-diff tools
+  ignore CC64 entirely and miss a real part of technique (legato pedaling
+  vs. rhythmic pedaling).
+- **On/off vs. continuous (half-pedaling)**: unconfirmed whether this
+  specific controller reports CC64 as continuous 0-127 or just binary —
+  verify against real hardware, don't assume either way.
+- **Never repurpose the pedal as a hands-free control input** — keep it
+  purely musical. Mixing it with the anchor+command layer would fire false
+  commands every time the user pedals normally while playing.
+- **Future: a separate 3-pedal MIDI unit** (e.g. Roland RPU-3, or any
+  generic MIDI foot controller) connected via its own USB-MIDI port,
+  independent from the Keystation. Implication: `midi_io.py` needs to
+  merge events from **multiple simultaneous MIDI input ports** into one
+  stream from the start — don't design it assuming a single connected
+  device, that would need a rewrite later.
+
 ## Usuario y progreso
 
 SQLite. Progreso trackeado **por pilar por separado**, nunca un solo número

@@ -53,6 +53,10 @@ IMSLP + OMR + datasets de repertorio graduado.
   real qué nota MIDI es la más grave/aguda que reporta — no asumir).
 - [ ] Módulos de lectura a primera vista y oído: aún no empezados,
   ver ARCHITECTURE.md para qué reutilizar.
+- [ ] Sustain pedal (CC64) support in `midi_io.py` + diff engine, and
+  multi-port MIDI merging (see docs/ARCHITECTURE.md, "Sustain pedal") —
+  verify with real hardware whether the Keystation 61es reports half-pedal
+  (continuous) or on/off only.
 - [ ] **Traducir todo a inglés** (docs, comentarios, mensajes de commit).
   README/ARCHITECTURE/STATUS/CONTRIBUTING y `control.py`/tests quedaron en
   español de la sesión de arranque — no es prioridad inmediata, pero todo
