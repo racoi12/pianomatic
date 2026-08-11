@@ -44,7 +44,9 @@ IMSLP + OMR + datasets de repertorio graduado.
 **Pendiente / siguiente sesión**:
 - [ ] Implementar `control.py` (ancla + mapeo por posición relativa) con
   su test.
-- [ ] Implementar `midi_io.py` (captura con `mido`).
+- [x] Implementar `midi_io.py` — `translate()` puro (testeado) + `MidiSession`
+  (I/O real, necesita hardware, no testeado). Usa `mido.ports.MultiPort`
+  con `yield_ports=True` para fusionar varios puertos de entrada.
 - [ ] Integrar `matchmaker` en `diff.py` — probar con un MIDI real
   (usar algo de `~/Music/BoosterMusicBooks4/` como primer caso de prueba).
 - [ ] `report.py`: reporte de texto con las 3 dimensiones (timing, pitch,

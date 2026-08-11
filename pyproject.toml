@@ -14,6 +14,9 @@ dependencies = [
     "pymatchmaker[devices]>=0.3.0",
     "music21>=9.1",
 ]
+# mido and python-rtmidi are also pulled in transitively by
+# pymatchmaker[devices], but listed explicitly since pianomatic imports
+# them directly in midi_io.py.
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
