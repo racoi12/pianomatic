@@ -68,13 +68,34 @@ IMSLP + OMR + datasets de repertorio graduado.
   retorno de `run()` (un generador) solo se obtiene vía
   `StopIteration.value`, no agotando el generador con `list()` — eso
   descarta silenciosamente el path si no se maneja bien.
-- [ ] Diff por dimensión (timing/pitch/dinámica) en `diff.py`: **no
-  implementado**. `align()` solo da el path de alineación crudo — falta
-  emparejar cada nota de referencia con su contraparte tocada a través del
-  path e implementar los 3 diffs separados (ver ARCHITECTURE.md). Es
-  diseño real, no solo wiring — no apurarlo a medias.
-- [ ] `report.py`: reporte de texto con las 3 dimensiones (timing, pitch,
-  dinámica) separadas — depende del punto anterior.
+- [x] Diff por nota (timing + pitch) en `diff.py`: `match_notes()`
+  implementado y con 7 tests unitarios (datos sintéticos, rápidos — no
+  dependen del stack de ML). Algoritmo: nearest-neighbor greedy por pitch
+  dentro de una ventana de tolerancia (0.5s default), cada nota tocada se
+  usa como máximo una vez. **No es un assignment globalmente óptimo** —
+  suficiente para v1, revisar si falla en tocadas reales con notas
+  repetidas muy cerca entre sí.
+- [x] `compare()` end-to-end verificado manualmente contra un archivo real
+  (self-comparison): 8/8 notas de referencia emparejadas, desviación de
+  timing ~0ms (ruido de punto flotante). **Hallazgo real**: el archivo de
+  prueba (`~/Music/BoosterMusicBooks4/.../01-StartWithMiddleC.mid`, de
+  PianoBooster) trae banda completa — batería, bajo, acompañamiento — 196
+  eventos NOTE_ON en 4 canales MIDI contra solo 8 notas de la melodía de
+  piano. `extract_performed_notes()` ahora acepta `channel: int | None`
+  para filtrar, aunque en este archivo específico ni eso alcanza (la
+  melodía está doblada en varios canales). **No afecta el uso real**: la
+  captura en vivo (`midi_io.MidiSession` desde el teclado físico) nunca
+  tiene este problema — solo captura lo que el usuario realmente toca.
+  Para pruebas futuras, usar un MIDI de referencia limpio (solo piano,
+  ej. algo del dataset PSyllabus) en vez de un archivo de banda completa.
+- [ ] Dimensión de dinámica (velocity): `match_notes()` ya guarda la
+  velocity tocada por nota emparejada, pero **no compara contra una
+  referencia** — un MIDI simple no trae marcas de dinámica confiables.
+  Necesita una fuente de referencia con dinámica real antes de que esta
+  comparación tenga sentido.
+- [ ] `report.py`: reporte de texto a partir de un `DiffResult` — listo
+  para implementarse, la estructura de datos (`matched`/`missed`/`extra`)
+  ya existe.
 - [ ] Decidir rango exacto del Keystation 61es (verificar con hardware
   real qué nota MIDI es la más grave/aguda que reporta — no asumir).
 - [ ] Módulos de lectura a primera vista y oído: aún no empezados,
