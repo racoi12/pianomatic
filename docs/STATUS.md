@@ -42,8 +42,9 @@ IMSLP + OMR + datasets de repertorio graduado.
 - Scaffold inicial: `src/pianomatic/{control,midi_io,diff,report,cli}.py`.
 
 **Pendiente / siguiente sesión**:
-- [ ] Implementar `control.py` (ancla + mapeo por posición relativa) con
-  su test.
+- [x] Implementar `control.py` (ancla + mapeo por posición relativa) con
+  su test — hecho al arranque de esta sesión, 6 tests (ver commit
+  inicial), este checkbox había quedado sin marcar por error.
 - [x] Implementar `midi_io.py` — `translate()` puro (testeado) + `MidiSession`
   (I/O real, necesita hardware, no testeado). Usa `mido.ports.MultiPort`
   con `yield_ports=True` para fusionar varios puertos de entrada.
@@ -121,8 +122,12 @@ Cuando se llegue a esa fase, decidir: ¿`report.py` se vuelve internal-only
 (datos estructurados que el LLM consume) y el texto en inglés deja de
 mostrarse directamente al usuario? Probablemente sí — no diseñar
 i18n genérico para un texto que va a dejar de ser user-facing.
-- [ ] Decidir rango exacto del Keystation 61es (verificar con hardware
-  real qué nota MIDI es la más grave/aguda que reporta — no asumir).
+- [x] Rango real del Keystation 61es **verificado con hardware físico**
+  (aseqdump contra el puerto MIDI real, no supuesto): nota más grave = 36
+  (C2), más aguda = 96 (C7) — 60 semitonos, 61 teclas, coincide con la
+  especificación de 5 octavas. Ahora expuesto como
+  `control.KEYSTATION_61ES_LOW`/`KEYSTATION_61ES_HIGH`, reutilizado por
+  los tests en vez de duplicar los literales.
 - [ ] Módulos de lectura a primera vista y oído: aún no empezados,
   ver ARCHITECTURE.md para qué reutilizar.
 - [ ] Sustain pedal (CC64) support in `midi_io.py` + diff engine, and

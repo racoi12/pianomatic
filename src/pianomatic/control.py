@@ -13,6 +13,13 @@ from collections.abc import Callable
 
 _WHITE_KEY_PITCH_CLASSES = frozenset({0, 2, 4, 5, 7, 9, 11})  # C D E F G A B
 
+# M-Audio Keystation 61es real range, captured with aseqdump against the
+# physical hardware on 2026-08-11 (see docs/STATUS.md) — C2 to C7, 60
+# semitones / 61 keys. Not a guess: verified by pressing the two extreme
+# keys and reading the actual NOTE_ON values.
+KEYSTATION_61ES_LOW = 36
+KEYSTATION_61ES_HIGH = 96
+
 
 def _is_white_key(note: int) -> bool:
     return note % 12 in _WHITE_KEY_PITCH_CLASSES

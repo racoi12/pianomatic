@@ -1,6 +1,10 @@
-from pianomatic.control import HandsFreeControl
+from pianomatic.control import (
+    KEYSTATION_61ES_HIGH,
+    KEYSTATION_61ES_LOW,
+    HandsFreeControl,
+)
 
-LOW, HIGH = 36, 96  # placeholder range, see docs/STATUS.md pending calibration
+LOW, HIGH = KEYSTATION_61ES_LOW, KEYSTATION_61ES_HIGH
 
 
 def _control(commands=("play_pause", "repeat", "save")):
