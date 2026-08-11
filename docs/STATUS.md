@@ -93,9 +93,34 @@ IMSLP + OMR + datasets de repertorio graduado.
   referencia** — un MIDI simple no trae marcas de dinámica confiables.
   Necesita una fuente de referencia con dinámica real antes de que esta
   comparación tenga sentido.
-- [ ] `report.py`: reporte de texto a partir de un `DiffResult` — listo
-  para implementarse, la estructura de datos (`matched`/`missed`/`extra`)
-  ya existe.
+- [x] `report.py`: implementado, inglés (ver nota abajo sobre
+  localización), 8 tests unitarios (datos sintéticos). Solo lista
+  desviaciones de timing por encima del umbral JND (default 50ms) —
+  nunca reporta ruido sub-perceptual como error, y separa timing/notas
+  perdidas/extra en secciones distintas (nunca un solo score).
+- [x] `cli.py`: `pianomatic compare SCORE.mid PERFORMANCE.mid` funciona
+  end-to-end, verificado con el comando real instalado (`pip install -e`).
+- [x] **v1 del pilar Repertorio queda cerrado**: captura → alineación →
+  diff por nota → reporte, cada pieza implementada y probada (26 tests).
+  Falta solo dinámica (bloqueada por necesitar una fuente de referencia
+  con marcas de expresión reales) y localización del reporte (ver abajo).
+
+## Pendiente: localización del reporte
+
+`report.py` genera el texto en inglés (consistente con "todo en inglés" a
+partir de esta sesión). Pero el/los usuario(s) reales de esta herramienta
+(Akira, Chayo, familia) hablan español — un reporte de coaching en inglés
+no es la experiencia final que se quiere. No se resolvió aquí porque:
+- v1 es una herramienta de desarrollador (CLI, texto plano) para probar
+  que el motor funciona, no la experiencia de coaching pulida.
+- El reporte real de cara al usuario será generado por el LLM local
+  (fase de "coach" pendiente, ver ARCHITECTURE.md) — ahí es donde
+  naturalmente se resuelve el idioma (prompt en español), no en el
+  `report.py` de texto plano de v1.
+Cuando se llegue a esa fase, decidir: ¿`report.py` se vuelve internal-only
+(datos estructurados que el LLM consume) y el texto en inglés deja de
+mostrarse directamente al usuario? Probablemente sí — no diseñar
+i18n genérico para un texto que va a dejar de ser user-facing.
 - [ ] Decidir rango exacto del Keystation 61es (verificar con hardware
   real qué nota MIDI es la más grave/aguda que reporta — no asumir).
 - [ ] Módulos de lectura a primera vista y oído: aún no empezados,
