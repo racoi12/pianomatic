@@ -4,6 +4,66 @@ Format: date, what was done, what decisions were made and why, what's
 next. So that anyone (human or AI) can pick the project back up without
 rereading the whole conversation history that originated it.
 
+## 2026-08-12 — First real-hardware verification of `practice`
+
+Deployed pianomatic to the MacBook companion (`chayo-macbookair7-2`) and
+ran `pianomatic practice` against the real ALSA MIDI graph for the first
+time — confirming the note from 2026-08-11 that "the first real-world run
+always finds something a synthetic test didn't."
+
+**Deploy notes**: `apt`'s dpkg lock was held by `unattended-upgrades` for
+10+ minutes after boot (legitimate, not stuck — just slow), blocking
+`python3-venv`. Worked around it entirely: `python3 -m venv` needs
+`ensurepip` (part of the blocked apt package), so skipped venv, bootstrapped
+pip via `bootstrap.pypa.io/get-pip.py` (no apt needed), and installed with
+`pip install --break-system-packages --no-deps` (skipping `pymatchmaker[devices]`'s
+`pyaudio` extra, which needs Python.h / compiler headers we don't have —
+not needed anyway since we only use MIDI input, not audio, and
+`python3-rtmidi` was already installed system-wide from the PianoBooster
+debugging session).
+
+**Real bug found and fixed**: `MidiSession` used `mido.ports.MultiPort`
+to merge input ports, following mido's own documented pattern
+(`yield_ports=True`). Against real hardware it delivered **zero events,
+always** — verified in isolation: `mido.open_input()` +
+`iter_pending()` directly received all 12 injected test events
+correctly; wrapping the exact same open port in
+`MultiPort(yield_ports=True)` received 0. Root cause:
+`MultiPort._receive(block=True)` passes `block=True` into
+`multi_receive()`, whose generator loops forever (`while True`) when
+`block=True` — and `deque.extend()` can't return until the generator
+raises `StopIteration`, which an infinite generator never does. The call
+hangs forever on the very first receive; no event is ever delivered to
+the caller. **Fix**: `MidiSession.listen()` now polls each port's
+`iter_pending()` directly in a round-robin loop, sidestepping
+MultiPort/`multi_receive()` entirely — verified working with the same
+real-hardware injection test.
+
+**Test method** (since coordinating live key presses over a chat turn is
+impractical, established 2026-08-11): used `aplaymidi` to inject a
+constructed MIDI file into ALSA's standard "Midi Through Port-0" (client
+14, exists on every Linux system, no virtual port setup needed), with
+`pianomatic practice` listening on that same port instead of the real
+Keystation port. This exercises the entire real ALSA/ layer
+(`mido.open_input`, real sequencer events, real timestamps) — the only
+difference from a physical keyboard is the event source, not any code
+path pianomatic itself runs.
+
+**Result after the fix**: full pipeline verified end-to-end against real
+ALSA MIDI I/O — `pianomatic practice` correctly listened, recorded 3
+performed notes (pitches 60/64/67) while correctly EXCLUDING the
+anchor+stop gesture notes (36/96/38) from the recording, detected the
+stop command and exited the loop, saved a valid MIDI file (verified:
+exactly the 3 performed notes, none of the control notes), then ran
+`align()` + `match_notes()` + `generate_report()` against the reference
+score. Report: `Notes: 3/3 matched (100%), Timing: 0ms average deviation,
+0 notes off by more than 50ms`. Saved file round-tripped correctly
+through `extract_performed_notes()`.
+
+**Pending**: the same MultiPort bug is worth reporting upstream to mido
+— it affects anyone using the documented `yield_ports=True` blocking
+pattern, not just this project. Not filed yet.
+
 ## 2026-08-11 — Project kickoff
 
 **Origin context**: born out of setting up a 2015 MacBook Air (Ubuntu
@@ -116,18 +176,20 @@ tools, notation rendering + IMSLP + OMR + graded-repertoire datasets.
   then `extract_performed_notes` recovers the same notes).
 - `cli.py practice` command: wires `MidiSession` + `PracticeSession` +
   `save_performed_notes` + `compare` end-to-end. **NOT verified against
-  real hardware** — coordinating live key presses over a chat turn
-  proved impractical this session (see the keyboard-range calibration
+  real hardware in this session** — coordinating live key presses over a
+  chat turn proved impractical (see the keyboard-range calibration
   exchange). Each piece it wires IS independently tested; the wiring
-  itself needs a real run to confirm.
+  itself needed a real run to confirm. ✅ Done the next session
+  (2026-08-12, see that entry above) — found and fixed a real bug in the
+  process (`mido.ports.MultiPort` never delivers events in blocking
+  mode).
 - Whole project translated to English (README, ARCHITECTURE, STATUS,
   CONTRIBUTING, `control.py` + its tests were the last holdouts from the
   kickoff session, written in Spanish at the time).
 
 **Pending / next session**:
-- [ ] Run `pianomatic practice` against the real Keystation 61es and fix
-  whatever the first real-world run surfaces (there will likely be
-  something — synthetic tests never catch everything).
+- [x] Run `pianomatic practice` against real hardware and fix whatever
+  surfaced — done 2026-08-12, see that entry above.
 - [ ] Dynamics (velocity) dimension: `match_notes()` already records the
   velocity of each matched note, but doesn't compare it against a
   reference — a plain MIDI file doesn't carry reliable dynamics
