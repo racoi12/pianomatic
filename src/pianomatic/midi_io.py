@@ -22,6 +22,18 @@ import mido
 
 POLL_INTERVAL_SECONDS = 0.001
 
+_NOTE_NAMES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+
+
+def note_name(midi_note: int) -> str:
+    """MIDI note number -> readable name, e.g. 60 -> "C4" (standard
+    convention, middle C = C4). Shared by report.py and gui.py — nobody
+    wants to read raw MIDI numbers ("pitch 67") in a report or while
+    practicing.
+    """
+    octave = midi_note // 12 - 1
+    return f"{_NOTE_NAMES[midi_note % 12]}{octave}"
+
 
 @dataclass(frozen=True, slots=True)
 class NoteEvent:

@@ -20,6 +20,7 @@ docs/STATUS.md sub-agent reports):
 from __future__ import annotations
 
 from pianomatic.diff import DiffResult
+from pianomatic.midi_io import note_name
 
 DEFAULT_TIMING_TOLERANCE_MS = 50.0
 _MAX_LISTED_NOTES = 10
@@ -80,8 +81,8 @@ def _format_note_list(notes: list, formatter) -> list[str]:
 
 def _format_timing_offender(match) -> str:
     direction = "late" if match.timing_deviation_ms > 0 else "early"
-    return f"pitch {match.pitch} at beat {match.expected_beat:.2f}: {abs(match.timing_deviation_ms):.0f}ms {direction}"
+    return f"{note_name(match.pitch)} at beat {match.expected_beat:.2f}: {abs(match.timing_deviation_ms):.0f}ms {direction}"
 
 
 def _format_missed_note(note) -> str:
-    return f"pitch {note.pitch} at beat {note.beat:.2f}"
+    return f"{note_name(note.pitch)} at beat {note.beat:.2f}"

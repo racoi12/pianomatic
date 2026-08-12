@@ -44,7 +44,7 @@ from pianomatic.catalog import (
 from pianomatic.control import KEYSTATION_61ES_HIGH, KEYSTATION_61ES_LOW, HandsFreeControl
 from pianomatic.diff import align as diff_align
 from pianomatic.diff import extract_reference_notes, match_notes, save_performed_notes
-from pianomatic.midi_io import MidiSession
+from pianomatic.midi_io import MidiSession, note_name
 from pianomatic.report import generate_report
 from pianomatic.session import PracticeSession
 
@@ -152,8 +152,11 @@ class PracticeWorker(QObject):
         with MidiSession([self._port_name]) as midi_session:
             self._midi_session = midi_session
             for event in midi_session.listen():
+                notes_before = len(session.performed_notes)
                 session.handle_event(event)
-                self.status.emit(f"{len(session.performed_notes)} notes played")
+                if len(session.performed_notes) > notes_before:
+                    last_note = note_name(session.performed_notes[-1].pitch)
+                    self.status.emit(f"{len(session.performed_notes)} notes played — last: {last_note}")
                 if self._stop_requested:
                     midi_session.stop()
                     break

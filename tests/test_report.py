@@ -45,7 +45,7 @@ def test_missed_notes_are_listed():
     result = DiffResult(matched=[], missed=[ReferenceNote(pitch=64, beat=3.0)], extra=[])
     report = generate_report(result)
     assert "0/1 matched (0%)" in report
-    assert "pitch 64 at beat 3.00" in report
+    assert "E4 at beat 3.00" in report
 
 
 def test_extra_notes_are_counted():
