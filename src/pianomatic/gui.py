@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 from pianomatic.catalog import (
     DEFAULT_DATA_DIR,
     CatalogEntry,
+    filter_by_grade,
     load_catalog,
     resolve_midi_path,
     search,
@@ -158,13 +159,23 @@ class MainWindow(QMainWindow):
             )
             return
         self._entries = load_catalog(metadata_path)
-        self.status_label.setText(f"{len(self._entries)} pieces loaded. Search above to begin.")
+        self.status_label.setText(
+            f"{len(self._entries)} pieces loaded. Showing ABRSM grade 5-6 by default — search to narrow."
+        )
+        self._show_entries(filter_by_grade(self._entries, "ABRSM", 5, 6))
 
     def _on_search(self, text: str) -> None:
-        self.results_list.clear()
         if len(text) < 2:
+            # empty/too-short search: fall back to the default grade 5-6
+            # list instead of an empty results pane — an app that looks
+            # empty on open reads as broken, not "type something".
+            self._show_entries(filter_by_grade(self._entries, "ABRSM", 5, 6))
             return
-        for entry in search(self._entries, text)[:50]:
+        self._show_entries(search(self._entries, text)[:50])
+
+    def _show_entries(self, entries: list[CatalogEntry]) -> None:
+        self.results_list.clear()
+        for entry in entries:
             item = QListWidgetItem(entry_label(entry))
             item.setData(1, entry)
             self.results_list.addItem(item)
