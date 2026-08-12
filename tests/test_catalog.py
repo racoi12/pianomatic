@@ -3,7 +3,7 @@ against the actual dataset (see docs/STATUS.md) — download_dataset()
 itself isn't tested here (real network I/O), only the pure parsing.
 """
 
-from pianomatic.catalog import CatalogEntry, filter_by_grade, parse_catalog
+from pianomatic.catalog import CatalogEntry, filter_by_grade, parse_catalog, resolve_midi_path, search
 
 _FIXTURE = {
     "Faure G.Barcarolle 9 - op 101 A minor": {
@@ -100,3 +100,35 @@ def test_related_entries_as_list_is_handled():
     }
     entries = parse_catalog(fixture)
     assert entries[0].grade("AMEB") == 3
+
+
+def test_search_matches_composer_case_insensitive():
+    entries = parse_catalog(_FIXTURE)
+    result = search(entries, "couperin")
+    assert len(result) == 1
+    assert result[0].composer == "Couperin F."
+
+
+def test_search_matches_title():
+    entries = parse_catalog(_FIXTURE)
+    result = search(entries, "barcarolle")
+    assert len(result) == 1
+    assert result[0].composer == "Faure G."
+
+
+def test_search_no_match_returns_empty():
+    entries = parse_catalog(_FIXTURE)
+    assert search(entries, "nonexistent composer xyz") == []
+
+
+def test_resolve_midi_path():
+    entry = CatalogEntry(
+        key="Faure G.Barcarolle 9 - op 101 A minor",
+        composer="Faure G.",
+        title="Barcarolle 9 - op 101 A minor",
+        period="Romantic",
+        ps_rating=7,
+        grades={},
+    )
+    path = resolve_midi_path(entry, data_dir="/data")
+    assert str(path) == "/data/mid/Faure G.Barcarolle 9 - op 101 A minor.mid"

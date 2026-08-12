@@ -1,8 +1,11 @@
 """Entry points:
 
   pianomatic compare SCORE.mid PERFORMANCE.mid
+  pianomatic compare --catalog "couperin" PERFORMANCE.mid
   pianomatic practice SCORE.mid --port "PORT NAME"
+  pianomatic practice --catalog "couperin" --port "PORT NAME"
   pianomatic catalog fetch
+  pianomatic catalog search "couperin"
   pianomatic catalog list --syllabus ABRSM --min-grade 5 --max-grade 6
 
 Only wires the repertoire pillar's diff engine — the other three pillars
@@ -17,7 +20,14 @@ import sys
 import tempfile
 from pathlib import Path
 
-from pianomatic.catalog import DEFAULT_DATA_DIR, download_dataset, filter_by_grade, load_catalog
+from pianomatic.catalog import (
+    DEFAULT_DATA_DIR,
+    download_dataset,
+    filter_by_grade,
+    load_catalog,
+    resolve_midi_path,
+    search,
+)
 from pianomatic.control import KEYSTATION_61ES_HIGH, KEYSTATION_61ES_LOW, HandsFreeControl
 from pianomatic.diff import align as diff_align
 from pianomatic.diff import compare, extract_reference_notes, match_notes, save_performed_notes
@@ -35,14 +45,18 @@ def main(argv: list[str] | None = None) -> None:
     compare_parser = subparsers.add_parser(
         "compare", help="Compare a performance MIDI against a reference score"
     )
-    compare_parser.add_argument("score", help="Reference score (MIDI or MusicXML)")
+    compare_parser.add_argument("score", nargs="?", default=None, help="Reference score (MIDI or MusicXML)")
     compare_parser.add_argument("performance", help="Performed MIDI to evaluate")
+    compare_parser.add_argument("--catalog", default=None, help="Find the score in the catalog instead (search query)")
+    compare_parser.add_argument("--dest", default=None, help=f"Catalog data directory (default: {DEFAULT_DATA_DIR})")
 
     practice_parser = subparsers.add_parser(
         "practice",
         help="Capture a live performance from a MIDI keyboard, then report against a score",
     )
-    practice_parser.add_argument("score", help="Reference score (MIDI or MusicXML)")
+    practice_parser.add_argument("score", nargs="?", default=None, help="Reference score (MIDI or MusicXML)")
+    practice_parser.add_argument("--catalog", default=None, help="Find the score in the catalog instead (search query)")
+    practice_parser.add_argument("--dest", default=None, help=f"Catalog data directory (default: {DEFAULT_DATA_DIR})")
     practice_parser.add_argument("--port", required=True, help="MIDI input port name")
     practice_parser.add_argument(
         "--save-to",
@@ -58,6 +72,10 @@ def main(argv: list[str] | None = None) -> None:
     )
     fetch_parser.add_argument("--dest", default=None, help=f"Data directory (default: {DEFAULT_DATA_DIR})")
 
+    search_parser = catalog_subparsers.add_parser("search", help="Search the catalog by composer/title")
+    search_parser.add_argument("query")
+    search_parser.add_argument("--dest", default=None, help=f"Data directory (default: {DEFAULT_DATA_DIR})")
+
     list_parser = catalog_subparsers.add_parser("list", help="List catalog entries")
     list_parser.add_argument("--dest", default=None, help=f"Data directory (default: {DEFAULT_DATA_DIR})")
     list_parser.add_argument("--syllabus", default="ABRSM", help="Grading syllabus (default: ABRSM)")
@@ -67,14 +85,41 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     if args.command == "compare":
-        result = compare(args.score, args.performance)
+        score_path = _resolve_score(args.score, args.catalog, args.dest)
+        result = compare(score_path, args.performance)
         print(generate_report(result))
     elif args.command == "practice":
-        _run_practice(args.score, args.port, args.save_to)
+        score_path = _resolve_score(args.score, args.catalog, args.dest)
+        _run_practice(score_path, args.port, args.save_to)
     elif args.command == "catalog":
         _run_catalog(args)
     else:  # pragma: no cover - unreachable, argparse enforces valid choices
         sys.exit(f"Unknown command: {args.command}")
+
+
+def _resolve_score(score_arg: str | None, catalog_query: str | None, dest_arg: str | None) -> str:
+    """Either a direct file path (`score_arg`) or a catalog search query
+    (`catalog_query`) must be given — resolves either into an actual file
+    path. Ambiguous/no-match catalog searches exit with the candidates
+    instead of guessing.
+    """
+    if score_arg and catalog_query:
+        sys.exit("Pass either a score path or --catalog, not both.")
+    if score_arg:
+        return score_arg
+    if not catalog_query:
+        sys.exit("Pass either a score path or --catalog QUERY.")
+
+    dest = Path(dest_arg) if dest_arg else DEFAULT_DATA_DIR
+    entries = load_catalog(dest / "new_clean_data.json")
+    matches = search(entries, catalog_query)
+    if not matches:
+        sys.exit(f"No catalog match for '{catalog_query}'. Try 'pianomatic catalog search \"{catalog_query}\"'.")
+    if len(matches) > 1:
+        listing = "\n".join(f"  {e.composer} — {e.title}" for e in matches[:10])
+        more = f"\n  ... and {len(matches) - 10} more" if len(matches) > 10 else ""
+        sys.exit(f"'{catalog_query}' matches {len(matches)} pieces, be more specific:\n{listing}{more}")
+    return str(resolve_midi_path(matches[0], dest))
 
 
 def _run_catalog(args: argparse.Namespace) -> None:
@@ -83,6 +128,12 @@ def _run_catalog(args: argparse.Namespace) -> None:
         print(f"Downloading Piano Syllabus Dataset to {dest} (~64MB, skips what's already there)...")
         download_dataset(dest)
         print("Done.")
+    elif args.catalog_command == "search":
+        entries = load_catalog(dest / "new_clean_data.json")
+        matches = search(entries, args.query)
+        print(f"{len(matches)} matches for '{args.query}':")
+        for e in matches:
+            print(f"  {e.composer} — {e.title} (ps_rating {e.ps_rating}, grades: {e.grades})")
     elif args.catalog_command == "list":
         entries = load_catalog(dest / "new_clean_data.json")
         selected = filter_by_grade(entries, args.syllabus, args.min_grade, args.max_grade)

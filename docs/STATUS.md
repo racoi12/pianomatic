@@ -259,11 +259,16 @@ tools, notation rendering + IMSLP + OMR + graded-repertoire datasets.
 - [ ] Report localization (see below) — not urgent, deferred on purpose.
 - [x] Song catalog (PSyllabus dataset) — done 2026-08-12, see that entry
   above (`catalog.py`).
-- [ ] Wire the catalog into `practice`/`compare` — right now you still
-  pass a raw MIDI file path; `pianomatic practice --catalog "Couperin
-  F.Les Petits..." --port ...` (resolving through the downloaded
-  `mid/{key}.mid`) would be the natural next step now that the catalog
-  exists.
+- [x] Wire the catalog into `practice`/`compare` — done 2026-08-12,
+  `--catalog "search query"` on both commands, plus `catalog search` for
+  discovery (the real `key` strings are too verbose to type/remember
+  exactly — search resolves a fuzzy query to the exact piece). Ambiguous
+  or no-match queries exit with the candidate list instead of guessing.
+  Verified against the real dataset: search, ambiguous-match error,
+  no-match error, and a full `compare --catalog` run all behave
+  correctly. `pianomatic practice --catalog "couperin f les petits" --port ...`
+  is now the real way someone would actually use this, not
+  `practice /path/to/some.mid --port ...`.
 - [ ] File the `mido.ports.MultiPort` bug upstream (see the 2026-08-12
   practice-verification entry above) — affects anyone using the
   documented `yield_ports=True` blocking pattern, not just this project.

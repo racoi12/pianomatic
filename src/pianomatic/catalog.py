@@ -88,9 +88,23 @@ def filter_by_grade(
     ]
 
 
+def search(entries: list[CatalogEntry], query: str) -> list[CatalogEntry]:
+    """Pure: case-insensitive substring match across composer + title —
+    the real `key` strings are verbose ("Faure G.Barcarolle 9 - op 101 A
+    minor") and impractical to type/remember exactly, this is how you'd
+    actually find a piece to play.
+    """
+    q = query.lower()
+    return [e for e in entries if q in e.composer.lower() or q in e.title.lower()]
+
+
 def load_catalog(json_path: str | os.PathLike) -> list[CatalogEntry]:
     with open(json_path, encoding="utf-8") as f:
         return parse_catalog(json.load(f))
+
+
+def resolve_midi_path(entry: CatalogEntry, data_dir: str | os.PathLike = DEFAULT_DATA_DIR) -> Path:
+    return Path(data_dir) / "mid" / entry.midi_filename()
 
 
 def download_dataset(dest_dir: str | os.PathLike = DEFAULT_DATA_DIR) -> Path:
