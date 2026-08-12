@@ -31,16 +31,26 @@ Compare your MIDI performance of a piece against a reference.
   → report end-to-end. Implemented, NOT yet verified against real
   hardware — see docs/STATUS.md.
 
-## 2. Sight-reading (pending)
+## 2. Sight-reading (rendering done, procedural generation pending)
 
 Doesn't use pillar 1's fixed reference — needs NEW material every time.
 
 - Procedural generation: [Open Sheet Music Education](https://opensheetmusiceducation.org/)
   (BSD-3) or adapt [`ftrain/sightreading`](https://github.com/ftrain/sightreading)
-  (LGPL-3.0, already has live MIDI input and 23 levels).
-- Rendering: **OpenSheetMusicDisplay (OSMD)** — its Cursor API highlights
-  the current note in real time synced with MIDI, exactly our use case.
-  BSD-3.
+  (LGPL-3.0, already has live MIDI input and 23 levels). Not started.
+- **Rendering: done (2026-08-12)**. OpenSheetMusicDisplay (OSMD, BSD-3),
+  bundled locally (`src/pianomatic/webview/opensheetmusicdisplay.min.js`,
+  not a CDN — matches "100% local"), shown via `QWebEngineView` embedded
+  in the desktop app (`gui.py`). OSMD needs MusicXML, not raw MIDI (a
+  MIDI file lacks notation-level info like clefs/spelling) —
+  `notation.py` converts via `partitura.save_musicxml`, cached to disk
+  since conversion isn't instant. Currently used to show the score for
+  the selected catalog piece (static) — the Cursor API's real-time
+  note-highlighting synced to live MIDI input (what the mention above
+  was originally about) is NOT wired up yet: that needs real-time
+  score-following during capture, which is architecturally different
+  from pillar 1's current batch alignment (runs `align()` AFTER the full
+  performance is captured, not live during it). See docs/STATUS.md.
 
 ## 3. Ear training (pending)
 

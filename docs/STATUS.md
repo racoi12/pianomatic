@@ -4,6 +4,64 @@ Format: date, what was done, what decisions were made and why, what's
 next. So that anyone (human or AI) can pick the project back up without
 rereading the whole conversation history that originated it.
 
+## 2026-08-12 — Sheet music display (OSMD embedded in the desktop app)
+
+User feedback after the first real practice session ("no entiendo,
+supongo falta mucho") plus explicitly choosing the big option when asked
+"small GUI polish vs. sheet music display" — went for sheet music, the
+thing that actually addresses "I don't understand what to play."
+
+**Three real pieces verified working together, in order**:
+1. `notation.py`: `convert()` wraps `partitura.save_musicxml()` — a real
+   PSyllabus MIDI (1702 notes) converts to valid MusicXML in 0.74s,
+   cached to disk (instant on re-run). OSMD needs MusicXML/MEI, not raw
+   MIDI — a MIDI file has no clef/note-spelling info, which is why this
+   conversion step exists at all.
+2. OSMD itself: downloaded the npm package (`opensheetmusicdisplay`
+   2.1.2, BSD-3), used the prebuilt
+   `build/opensheetmusicdisplay.min.js` (1.3MB, single file) — bundled
+   into `src/pianomatic/webview/`, NOT loaded from a CDN, matching the
+   project's "100% local" principle.
+3. `QWebEngineView` (PySide6) embeds `webview/viewer.html` (loads the
+   bundled OSMD JS, exposes `loadScoreFromPath(path)` for Python to call
+   via `page().runJavaScript()`) in a new right-hand panel of the main
+   window (`QSplitter`, window resized to 1300x750). Selecting a catalog
+   entry now converts+caches its MusicXML and loads it into the viewer.
+
+**Real dependency finding**: plain `PySide6` alone does NOT expose
+`QWebEngineView` — Qt6 splits PySide6 into Essentials + Addons, and
+`QtWebEngineWidgets` lives in `PySide6-Addons`. Had to install it
+separately before the import worked. `pyproject.toml`'s `gui` extra now
+lists both.
+
+**Verified headless** (offscreen platform, same pattern as everything
+else in this project): loaded a real converted score into the real
+embedded webview and confirmed via `runJavaScript` that OSMD actually
+rendered SVG content into the DOM (`document.querySelectorAll('#osmd-container svg').length === 1`)
+— not just "the page loaded without error," actual rendered sheet music
+confirmed present. The "SkyBottomLineCalculator: width not > 0" console
+messages seen during this are a known OSMD artifact of a zero-width
+offscreen container (no real screen), not a real error — expected to be
+silent on the MacBook's real visible window.
+
+**NOT done — this is a big scope, only the first slice is finished**:
+- **No real-time cursor sync yet.** The score displays statically when
+  you select a piece; it does NOT highlight the current note while you
+  play. OSMD has a Cursor API for exactly this, but wiring it up needs
+  REAL-TIME score-following during capture — architecturally different
+  from pillar 1's current `align()`, which runs as a batch step AFTER
+  the full performance is captured (see `cli.py`/`gui.py`'s
+  `_run_practice`/`PracticeWorker`). This is real, separate work, not a
+  quick follow-up.
+- Not yet verified on a real visible window (only offscreen) — next
+  step, same as the base GUI's own pending item.
+- Packaging caveat for later: `webview/` files are found via
+  `Path(__file__).parent`, which works fine for the editable installs
+  (`pip install -e .`) used throughout this whole project, but a real
+  wheel build would need `package-data` configured in `pyproject.toml`
+  to include the non-`.py` files (`.html`, `.js`). Not relevant yet,
+  noting it so it isn't a surprise later.
+
 ## 2026-08-12 — Desktop app (`gui.py`, PySide6)
 
 First real GUI — until now pianomatic was terminal-only. User explicitly

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { margin: 0; padding: 8px; font-family: sans-serif; background: #fff; }
+    #osmd-container { width: 100%; }
+  </style>
+  <script src="opensheetmusicdisplay.min.js"></script>
+</head>
+<body>
+  <div id="osmd-container"></div>
+  <script>
+    const osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay("osmd-container", {
+      autoResize: true,
+      drawTitle: true,
+    });
+
+    // Called from Python via page().runJavaScript(). Loads a MusicXML
+    // file from a local file:// path — both this page and the score
+    // file are loaded via file://, same-origin enough for QtWebEngine's
+    // local file access (no CORS issue in practice, verified manually,
+    // see docs/STATUS.md).
+    function loadScoreFromPath(path) {
+      osmd.load(path).then(() => osmd.render());
+    }
+  </script>
+</body>
+</html>

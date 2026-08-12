@@ -18,7 +18,8 @@ import traceback
 from pathlib import Path
 
 import mido
-from PySide6.QtCore import QObject, QThread, Signal
+from PySide6.QtCore import QObject, QThread, QTimer, QUrl, Signal
+from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -28,6 +29,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMainWindow,
     QPushButton,
+    QSplitter,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -45,8 +47,12 @@ from pianomatic.control import KEYSTATION_61ES_HIGH, KEYSTATION_61ES_LOW, HandsF
 from pianomatic.diff import align as diff_align
 from pianomatic.diff import extract_reference_notes, match_notes, save_performed_notes
 from pianomatic.midi_io import MidiSession, note_name
+from pianomatic.notation import convert as convert_to_musicxml
 from pianomatic.report import generate_report
 from pianomatic.session import PracticeSession
+
+WEBVIEW_DIR = Path(__file__).parent / "webview"
+MUSICXML_CACHE_DIR = DEFAULT_DATA_DIR.parent / "musicxml_cache"
 
 STOP_COMMAND = "stop"
 
@@ -188,10 +194,14 @@ class MainWindow(QMainWindow):
         self._selected_entry: CatalogEntry | None = None
         self._thread: QThread | None = None
         self._worker: PracticeWorker | None = None
+        self.resize(1300, 750)
 
-        central = QWidget()
-        self.setCentralWidget(central)
-        layout = QVBoxLayout(central)
+        splitter = QSplitter()
+        self.setCentralWidget(splitter)
+
+        left = QWidget()
+        layout = QVBoxLayout(left)
+        splitter.addWidget(left)
 
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Search catalog (composer or title)...")
@@ -222,6 +232,13 @@ class MainWindow(QMainWindow):
         self.report_view.setReadOnly(True)
         self.report_view.setFontFamily("monospace")
         layout.addWidget(self.report_view)
+
+        self._webview_ready = False
+        self.sheet_music_view = QWebEngineView()
+        self.sheet_music_view.loadFinished.connect(self._on_webview_loaded)
+        self.sheet_music_view.load(QUrl.fromLocalFile(str(WEBVIEW_DIR / "viewer.html")))
+        splitter.addWidget(self.sheet_music_view)
+        splitter.setSizes([450, 850])
 
         self._load_catalog()
 
@@ -254,11 +271,38 @@ class MainWindow(QMainWindow):
             item.setData(1, entry)
             self.results_list.addItem(item)
 
+    def _on_webview_loaded(self, ok: bool) -> None:
+        logger.info("Sheet music webview loaded: %s", ok)
+        self._webview_ready = ok
+
     def _on_select(self) -> None:
         items = self.results_list.selectedItems()
         self._selected_entry = items[0].data(1) if items else None
         logger.info("Selected: %s", self._selected_entry.key if self._selected_entry else None)
         self.practice_button.setEnabled(self._selected_entry is not None)
+        if self._selected_entry is not None:
+            self._show_sheet_music(self._selected_entry)
+
+    def _show_sheet_music(self, entry: CatalogEntry) -> None:
+        midi_path = resolve_midi_path(entry, self._data_dir)
+        try:
+            xml_path = convert_to_musicxml(midi_path, MUSICXML_CACHE_DIR)
+        except Exception:
+            logger.error("MusicXML conversion failed for %s:\n%s", entry.key, traceback.format_exc())
+            return
+        js = f'loadScoreFromPath("file://{xml_path.resolve()}")'
+
+        def run_js() -> None:
+            self.sheet_music_view.page().runJavaScript(js)
+
+        # viewer.html loads asynchronously; if it's not ready yet (e.g.
+        # user searches+selects very fast right after startup), retry
+        # shortly instead of silently no-op-ing against an undefined JS
+        # function.
+        if self._webview_ready:
+            run_js()
+        else:
+            QTimer.singleShot(300, lambda: self._show_sheet_music(entry))
 
     def _start_practice(self) -> None:
         try:

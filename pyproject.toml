@@ -14,14 +14,19 @@ dependencies = [
     "pymatchmaker[devices]>=0.3.0",
     "music21>=9.1",
     "numpy",
+    "partitura",
 ]
-# mido, python-rtmidi, and numpy are also pulled in transitively by
-# pymatchmaker[devices], but listed explicitly since pianomatic imports
-# them directly (midi_io.py, diff.py).
+# mido, python-rtmidi, numpy, and partitura are also pulled in
+# transitively by pymatchmaker[devices], but listed explicitly since
+# pianomatic imports them directly (midi_io.py, diff.py, notation.py).
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
-gui = ["PySide6>=6.5"]
+# PySide6-Addons is where QtWebEngineWidgets lives (Qt6 splits PySide6
+# into Essentials + Addons) — verified: plain PySide6 alone did NOT
+# expose QWebEngineView, had to install PySide6-Addons separately, see
+# docs/STATUS.md.
+gui = ["PySide6>=6.5", "PySide6-Addons>=6.5"]
 
 [project.scripts]
 pianomatic = "pianomatic.cli:main"
