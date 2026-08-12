@@ -112,6 +112,23 @@ class PracticeWorker(QObject):
         self._score_path = score_path
         self._port_name = port_name
         self._stop_requested = False
+        self._abort = False
+        self._midi_session: MidiSession | None = None
+
+    def request_stop(self) -> None:
+        """Called from another thread (MainWindow.closeEvent) to abort a
+        running session immediately — skips the analysis step, just ends
+        the capture loop. Real bug this exists to fix (2026-08-12, see
+        docs/STATUS.md): closing the window while this worker was still
+        blocked listening for MIDI left its QThread running when Qt tore
+        the app down, and Qt6 treats destroying a running QThread as
+        fatal — the whole process aborted, which looked like a crash.
+        """
+        logger.info("PracticeWorker.request_stop() called")
+        self._abort = True
+        self._stop_requested = True
+        if self._midi_session is not None:
+            self._midi_session.stop()
 
     def run(self) -> None:
         logger.info("PracticeWorker starting: score=%s port=%r", self._score_path, self._port_name)
@@ -133,11 +150,18 @@ class PracticeWorker(QObject):
 
         self.status.emit(f"Listening on {self._port_name}. Hold lowest+highest key, then the next white key, to stop.")
         with MidiSession([self._port_name]) as midi_session:
+            self._midi_session = midi_session
             for event in midi_session.listen():
                 session.handle_event(event)
                 self.status.emit(f"{len(session.performed_notes)} notes played")
                 if self._stop_requested:
+                    midi_session.stop()
                     break
+        self._midi_session = None
+
+        if self._abort:
+            logger.info("PracticeWorker aborted, skipping analysis")
+            return
 
         self.status.emit("Analyzing performance...")
         target = Path(tempfile.mktemp(suffix=".mid"))
@@ -277,6 +301,29 @@ class MainWindow(QMainWindow):
         logger.error("Practice error signal: %s", message)
         self.status_label.setText(f"Error: {message}")
         self.practice_button.setEnabled(True)
+
+    def closeEvent(self, event) -> None:  # noqa: N802 - Qt override, not our naming convention
+        """Real bug this fixes (2026-08-12, see docs/STATUS.md): closing
+        the window while a practice session was still listening for MIDI
+        left its QThread running when Qt tore the app down — Qt6 treats
+        that as fatal and aborts the whole process (looked like a crash,
+        not a graceful close). Must stop the worker and actually wait for
+        its thread to finish before letting the window close.
+        """
+        if self._thread is not None and self._thread.isRunning():
+            logger.info("Closing while practice session active — stopping worker first")
+            self._worker.request_stop()
+            # request_stop() aborts the worker's _run() without it ever
+            # emitting finished/error — those signals are what normally
+            # trigger self._thread.quit(). Without calling quit() here
+            # too, the QThread's own event loop never gets told to stop
+            # even after the worker's Python method returns, and Qt6
+            # aborts the whole process on a still-"running" QThread
+            # (verified: this exact gap reproduced the crash, see
+            # docs/STATUS.md 2026-08-12).
+            self._thread.quit()
+            self._thread.wait(2000)
+        event.accept()
 
 
 def main() -> None:

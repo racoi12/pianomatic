@@ -84,15 +84,31 @@ class MidiSession:
         if not port_names:
             raise ValueError("MidiSession needs at least one port name")
         self._ports = [mido.open_input(name) for name in port_names]
+        self._stopped = False
 
     def listen(self) -> Iterator[Event]:
-        while True:
+        """Blocks forever waiting for MIDI input unless something calls
+        `stop()` — a real bug (2026-08-12, see docs/STATUS.md) was
+        calling code (the GUI) never having any way to interrupt this,
+        so closing the window while a practice session was listening left
+        a QThread running when Qt tore down the app, which Qt6 treats as
+        fatal (aborts the whole process) rather than a soft warning.
+        `stop()` is what a caller uses to end this cleanly from another
+        thread.
+        """
+        while not self._stopped:
             for port in self._ports:
                 for message in port.iter_pending():
                     event = translate(message, time.monotonic(), port=port.name)
                     if event is not None:
                         yield event
             time.sleep(POLL_INTERVAL_SECONDS)
+
+    def stop(self) -> None:
+        """Thread-safe enough for our use: a plain bool flip, read by the
+        polling loop next iteration (at most POLL_INTERVAL_SECONDS later).
+        """
+        self._stopped = True
 
     def close(self) -> None:
         for port in self._ports:
