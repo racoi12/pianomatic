@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pianomatic"
 version = "0.1.0"
-description = "Coach de piano con IA, 100% local y open-source"
+description = "Local, open-source AI piano coach"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 license = { text = "MIT" }
@@ -21,9 +21,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+gui = ["PySide6>=6.5"]
 
 [project.scripts]
 pianomatic = "pianomatic.cli:main"
+pianomatic-gui = "pianomatic.gui:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

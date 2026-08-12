@@ -4,6 +4,49 @@ Format: date, what was done, what decisions were made and why, what's
 next. So that anyone (human or AI) can pick the project back up without
 rereading the whole conversation history that originated it.
 
+## 2026-08-12 — Desktop app (`gui.py`, PySide6)
+
+First real GUI — until now pianomatic was terminal-only. User explicitly
+asked for "a decent desktop application", not a web page.
+
+**Toolkit choice**: PySide6 (official Qt-for-Python bindings), not
+PyQt6. Reasoning: PianoBooster itself is Qt (we've been patching its
+`.ini`/launch flags all session), so the desktop already leans Qt; and
+PySide6 is LGPL while PyQt6 is GPL/commercial-dual — LGPL fits this
+MIT-licensed project's "external deps keep their own license, invoked
+not vendored" principle better (see ARCHITECTURE.md, "License" section).
+
+**Design**: the GUI is presentation only — `gui.py` imports and calls
+`catalog`, `control`, `session`, `diff`, `report` exactly as `cli.py`
+does, no duplicated logic. `PracticeWorker(QObject)` moved to a
+`QThread` runs the same blocking capture loop as `cli.py`'s
+`_run_practice`, emitting Qt signals instead of `print()`, so the UI
+thread never blocks on `MidiSession.listen()`.
+
+**What's testable and what isn't**: Qt widget/event-loop code isn't
+meaningfully unit-testable (real windows, a running event loop) — this
+is true of GUI code generally, not a gap specific to this project. What
+IS pure and tested: `entry_label()` (how a catalog entry renders as
+text, 3 tests). What's manually verified instead: constructed the real
+`MainWindow` headless (`QT_QPA_PLATFORM=offscreen`, no physical display
+needed) against the actual downloaded catalog — 7,901 pieces loaded,
+searched "couperin" → 29 results, selected an entry, confirmed the
+Practice button enables correctly. No crash. This is the same
+"synthetic-fast-tests + manually-verified-real-run" split used
+throughout the project (align(), download_dataset(), practice), applied
+to GUI construction instead of MIDI/network I/O.
+
+**Added**: `[project.optional-dependencies].gui = ["PySide6>=6.5"]`
+(separate extra — the CLI/core doesn't need Qt installed) and a
+`pianomatic-gui` console script.
+
+**Not yet done**: only manually verified headless (offscreen) on this
+machine — hasn't been run with a real visible window on the MacBook yet
+(next step, see Pending). No sheet-music display (that's the
+sight-reading pillar's OSMD integration, a separate and much bigger
+scope, see ARCHITECTURE.md) — this v1 GUI is catalog search + practice +
+plain-text report, not a music notation app.
+
 ## 2026-08-12 — Song catalog (`catalog.py`, PSyllabus dataset)
 
 Wired the "Content / song catalog" piece from ARCHITECTURE.md — until

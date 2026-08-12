@@ -35,6 +35,13 @@ to play without depending on the software at all.
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest  # runs the self-checks
+
+pianomatic catalog fetch                       # ~64MB, one-time
+pianomatic catalog search "beethoven sonatina"  # find a piece
+pianomatic practice --catalog "beethoven sonatina" --port "YOUR MIDI PORT"
+
+pip install -e ".[gui]"  # adds the desktop app
+pianomatic-gui           # search, pick a piece, click Practice, see the report
 ```
 
 ## Structure
@@ -46,7 +53,9 @@ src/pianomatic/
   session.py    — routes a live event stream between control and recording
   diff.py       — alignment (pymatchmaker) + multidimensional diff
   report.py     — plain-text report from a diff
-  cli.py        — entry points (`compare`, `practice`)
+  catalog.py    — Piano Syllabus Dataset song catalog (search, download)
+  cli.py        — terminal entry points (`compare`, `practice`, `catalog`)
+  gui.py        — desktop app (PySide6): search the catalog, practice, see the report
 docs/
   ARCHITECTURE.md — full design, decisions and rationale
   STATUS.md       — progress log between sessions
