@@ -1,62 +1,65 @@
 # pianomatic
 
-Coach de piano con IA, 100% local y open-source. Corre en Linux con un
-teclado MIDI real. No es una app de gamificación — el objetivo es
-proficiencia musical real (partitura, oído, memoria), no rachas ni puntos.
+Local, open-source AI piano coach. Runs on Linux with a real MIDI
+keyboard. Not a gamification app — the goal is real musical proficiency
+(sheet music, ear, memory), not streaks or points.
 
-**Estado actual**: v1 en desarrollo — motor de diff MIDI (pilar
-"repertorio") + capa de control manos-libres. Ver [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-para el diseño completo de los 4 pilares y el porqué de cada decisión
-técnica (con fuentes de investigación citadas).
+**Current status**: v1 in progress — MIDI diff engine (the "repertoire"
+pillar) + hands-free control layer, now wired together end-to-end for
+live practice. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the
+full design of the 4 pillars and the rationale behind each technical
+decision (with research sources cited).
 
-## Por qué existe
+## Why this exists
 
-Las apps comerciales (Simply Piano, Yousician, Flowkey) optimizan retención
-de la app, no maestría del instrumento — alta racha de uso, baja
-competencia real transferible al piano físico sin la app. `pianomatic`
-existe para hacer lo contrario: feedback multidimensional real (no un
-score único), con foco explícito en poder algún día tocar sin depender
-del software.
+Commercial apps (Simply Piano, Yousician, Flowkey) optimize for app
+retention, not instrument mastery — high usage streaks, low real
+competence transferable to a physical piano without the app.
+`pianomatic` exists to do the opposite: real multidimensional feedback
+(never a single score), with an explicit goal of eventually being able
+to play without depending on the software at all.
 
-## Empezando (para retomar el proyecto)
+## Getting started (to pick this project back up)
 
-1. Lee [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) completo primero — tiene
-   el mapa de los 4 pilares, qué está hecho, qué falta, y qué librería
-   externa reutilizar en cada caso (no reinventar lo que ya existe bien
-   hecho en el ecosistema open-source).
-2. Lee [docs/STATUS.md](docs/STATUS.md) — qué se hizo en cada sesión de
-   trabajo, qué sigue, decisiones pendientes.
-3. Requisitos: Python 3.11+, un teclado MIDI conectado (o `mido`'s virtual
-   port para desarrollar sin hardware).
+1. Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) in full first — it
+   has the map of the 4 pillars, what's done, what's missing, and which
+   external library to reuse for each (this project prioritizes
+   integrating over reinventing what the open-source ecosystem already
+   does well).
+2. Read [docs/STATUS.md](docs/STATUS.md) — what happened in each work
+   session, what's next, pending decisions.
+3. Requirements: Python 3.11+, a MIDI keyboard connected (or `mido`'s
+   virtual port to develop without hardware).
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-pytest  # corre los self-checks
+pytest  # runs the self-checks
 ```
 
-## Estructura
+## Structure
 
 ```
 src/pianomatic/
-  control.py    — capa de control manos-libres (ancla + comandos MIDI)
-  midi_io.py    — captura de eventos MIDI con timestamps
-  diff.py       — alineación (matchmaker) + diff multidimensional
-  report.py     — reporte de texto del diff
-  cli.py        — punto de entrada
+  control.py    — hands-free control layer (anchor + MIDI commands)
+  midi_io.py    — MIDI event capture with timestamps
+  session.py    — routes a live event stream between control and recording
+  diff.py       — alignment (pymatchmaker) + multidimensional diff
+  report.py     — plain-text report from a diff
+  cli.py        — entry points (`compare`, `practice`)
 docs/
-  ARCHITECTURE.md — diseño completo, decisiones y porqués
-  STATUS.md       — bitácora de progreso entre sesiones
-tests/           — un self-check por cada módulo con lógica no trivial
+  ARCHITECTURE.md — full design, decisions and rationale
+  STATUS.md       — progress log between sessions
+tests/           — one self-check per module with non-trivial logic
 ```
 
-## Contribuir
+## Contributing
 
-Ver [CONTRIBUTING.md](CONTRIBUTING.md). Issues y PRs bienvenidos —
-humanos o agentes de IA por igual, siempre que el PR explique el *por qué*
-del cambio, no solo el qué (el código ya dice el qué).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Issues and PRs welcome — from
+humans or AI agents alike, as long as the PR explains *why* the change is
+needed, not just what it does (the code already says what).
 
-## Licencia
+## License
 
-MIT — ver [LICENSE](LICENSE). Dependencias externas mantienen sus propias
-licencias (ver ARCHITECTURE.md).
+MIT — see [LICENSE](LICENSE). External dependencies keep their own
+licenses (see ARCHITECTURE.md).

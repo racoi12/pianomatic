@@ -1,30 +1,31 @@
-# Contribuir a pianomatic
+# Contributing to pianomatic
 
-Bienvenidos PRs de humanos y de agentes de IA por igual.
+PRs from humans and AI agents alike are welcome.
 
-## Antes de escribir código
+## Before writing code
 
-1. Lee `docs/ARCHITECTURE.md` completo — la mayoría de decisiones ya
-   tienen un porqué documentado con fuente de investigación. Si vas a
-   contradecir una decisión ahí, dilo explícitamente en el PR y por qué.
-2. Revisa `docs/STATUS.md` para saber qué está en progreso — evita
-   duplicar trabajo.
-3. Antes de escribir un módulo nuevo, revisa si ya existe una librería
-   open-source madura que resuelva el problema (ver la tabla de
-   ARCHITECTURE.md). Este proyecto prioriza *integrar* sobre *reinventar*.
+1. Read `docs/ARCHITECTURE.md` in full — most decisions there already
+   have a documented rationale with a research source. If you're going
+   to contradict a decision there, say so explicitly in the PR and why.
+2. Check `docs/STATUS.md` to know what's in progress — avoid duplicating
+   work.
+3. Before writing a new module, check whether a mature open-source
+   library already solves the problem (see the table in
+   ARCHITECTURE.md). This project prioritizes *integrating* over
+   *reinventing*.
 
-## Estilo
+## Style
 
-- Sin comentarios que expliquen QUÉ hace el código (nombres claros ya lo
-  dicen) — solo comentarios que expliquen un PORQUÉ no obvio (una
-  restricción oculta, un workaround de un bug específico).
-- Toda lógica no trivial (una rama, un loop, un parser) lleva un test
-  mínimo que falle si la lógica se rompe — no hace falta framework de
-  fixtures elaborado, un `test_*.py` simple con `assert` basta.
-- Diffs cortos y enfocados. Un PR, un cambio lógico.
+- No comments explaining WHAT the code does (clear names already say
+  that) — only comments explaining a non-obvious WHY (a hidden
+  constraint, a workaround for a specific bug).
+- Any non-trivial logic (a branch, a loop, a parser) gets a minimal
+  test that fails if the logic breaks — no need for an elaborate
+  fixture framework, a plain `test_*.py` with `assert` is enough.
+- Short, focused diffs. One PR, one logical change.
 
-## Al terminar un cambio significativo
+## When finishing a significant change
 
-Actualiza `docs/STATUS.md` con una entrada nueva (fecha, qué se hizo, qué
-sigue) — es lo que le permite a la siguiente persona (o sesión de IA)
-retomar sin releer todo el historial.
+Update `docs/STATUS.md` with a new entry (date, what was done, what's
+next) — that's what lets the next person (or AI session) pick up without
+rereading the whole history.
