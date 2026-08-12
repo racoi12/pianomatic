@@ -4,6 +4,36 @@ Format: date, what was done, what decisions were made and why, what's
 next. So that anyone (human or AI) can pick the project back up without
 rereading the whole conversation history that originated it.
 
+## 2026-08-12 — Second hands-on round: select-mid-session crash, desktop launcher
+
+**Real crash from hands-on testing**: switching to a different catalog
+entry while a practice session was still running crashed the app —
+`_on_select()` unconditionally re-enabled the Practice button on every
+selection, letting a second session start while the first was still
+listening for MIDI. This overwrote `self._thread`/`self._worker` while
+the old QThread was still alive — the same Qt6 abort-on-still-running-
+QThread crash as the close-mid-session bug fixed earlier today, reached
+through a different door. Fixed with an explicit `self._practice_active`
+flag, checked in both `_on_select()` (primary fix) and
+`_start_practice_impl()` (defensive second line). Reproduced and
+verified headless: switched selection mid-session, attempted a second
+start, confirmed it was rejected with a log line, no crash, clean exit.
+
+**Desktop launcher**: `~/.local/share/applications/pianomatic-gui.desktop`
+deployed on the MacBook — pianomatic now shows up as a normal
+application, not something that only launches via SSH + manual env vars.
+
+**Design question raised, answered without more code**: user asked "how
+do I know what to play if I can't read sheet music?" — a fair point,
+since OSMD only shows notation, no help for a non-reader. Decided NOT to
+build a falling-notes/piano-roll view in pianomatic: PianoBooster (fixed
+earlier this session, already installed, already working) already does
+exactly that. Recommendation given: use PianoBooster for the visual
+falling-notes guide while playing, pianomatic for the post-session
+analysis report — they're complementary, not competing, no need to
+duplicate what already works. Revisit only if this combination proves
+insufficient in practice.
+
 ## 2026-08-12 — Sheet music display (OSMD embedded in the desktop app)
 
 User feedback after the first real practice session ("no entiendo,
