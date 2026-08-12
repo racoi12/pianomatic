@@ -4,6 +4,61 @@ Format: date, what was done, what decisions were made and why, what's
 next. So that anyone (human or AI) can pick the project back up without
 rereading the whole conversation history that originated it.
 
+## 2026-08-12 — Song catalog (`catalog.py`, PSyllabus dataset)
+
+Wired the "Content / song catalog" piece from ARCHITECTURE.md — until
+now every test used either 3 synthetic notes or PianoBooster's
+backing-track demo file; this gives pianomatic its first real, clean,
+graded repertoire to point at.
+
+**Schema verified against the real dataset** (downloaded
+`new_clean_data.json` + `mid.zip` directly from Zenodo's API,
+`zenodo.org/api/records/14794592/files/...`), not assumed from the
+earlier research summary:
+- JSON is a dict keyed by `"{composer}{title}"`, matching MIDI filenames
+  exactly (`mid/{key}.mid`) — 7,901 entries, 7,901 MIDI files.
+- Every entry has `ps_rating` (0-10, a syllabus-independent unified
+  difficulty scale) and `related_entries` (dict of `{syllabus: grade}`,
+  e.g. `{"ABRSM": 6, "Trinity": 6, "RIAM": 8}` — the same piece can be
+  graded differently by different bodies, and not every piece has every
+  syllabus).
+- 1,271 entries have an ABRSM grade, 1,814 have RCM — plenty for the
+  project's grade 5-6 target (242 pieces at ABRSM grade 5-6 alone).
+- **Real data-quality quirk found**: `related_entries` is a dict for
+  7,899/7,901 entries but a **list** of
+  `{title, syllabus, grade, ps}` dicts for the other 2 — not documented
+  anywhere, only found by actually running the parser against the full
+  dataset (the hand-written test fixture didn't catch it, being based on
+  the schema doc, not the full real file — same lesson as the MultiPort
+  bug: synthetic tests miss what only shows up against real data).
+  `_parse_grades()` handles both shapes.
+
+**Implementation**: `catalog.py`, same two-layer pattern as the rest of
+the codebase — `parse_catalog()`/`filter_by_grade()` pure and unit
+tested (8 tests, including one covering the list-vs-dict quirk above);
+`download_dataset()`/`load_catalog()` real I/O, manually verified (not
+just described — actually ran `download_dataset()` end-to-end: 105s,
+7,901 MIDI files extracted correctly; re-ran it to confirm the
+idempotent skip logic works, near-instant on the second call). No new
+dependency — uses only stdlib (`urllib.request`, `zipfile`).
+
+**CLI**: `pianomatic catalog fetch` (downloads ~64MB to
+`~/.local/share/pianomatic/psyllabus/` by default) and
+`pianomatic catalog list --syllabus ABRSM --min-grade 5 --max-grade 6`.
+Verified against the real downloaded dataset, not just the synthetic
+fixture.
+
+**Also verified**: one real PSyllabus MIDI file (Couperin, ABRSM grade 6)
+parses cleanly through the EXISTING `diff.extract_reference_notes()` —
+1,702 notes extracted, no errors. The diff engine built in the previous
+session works on real graded repertoire without any changes needed.
+
+**Not done**: the 64MB dataset isn't committed to the repo (correctly —
+`scratch_psyllabus/` used during this session's exploration is
+gitignored). Popular-music content still has no pipeline at all (real
+legal wall, see ARCHITECTURE.md) — `catalog.py` only covers the
+classical/PSyllabus side.
+
 ## 2026-08-12 — First real-hardware verification of `practice`
 
 Deployed pianomatic to the MacBook companion (`chayo-macbookair7-2`) and
@@ -202,6 +257,16 @@ tools, notation rendering + IMSLP + OMR + graded-repertoire datasets.
   hardware whether the Keystation 61es reports half-pedal (continuous)
   or on/off only.
 - [ ] Report localization (see below) — not urgent, deferred on purpose.
+- [x] Song catalog (PSyllabus dataset) — done 2026-08-12, see that entry
+  above (`catalog.py`).
+- [ ] Wire the catalog into `practice`/`compare` — right now you still
+  pass a raw MIDI file path; `pianomatic practice --catalog "Couperin
+  F.Les Petits..." --port ...` (resolving through the downloaded
+  `mid/{key}.mid`) would be the natural next step now that the catalog
+  exists.
+- [ ] File the `mido.ports.MultiPort` bug upstream (see the 2026-08-12
+  practice-verification entry above) — affects anyone using the
+  documented `yield_ports=True` blocking pattern, not just this project.
 
 ### Pending: report localization
 
