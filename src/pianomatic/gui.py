@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMainWindow,
     QPushButton,
+    QSpinBox,
     QSplitter,
     QTextEdit,
     QVBoxLayout,
@@ -209,6 +210,27 @@ class MainWindow(QMainWindow):
         self.search_box.textChanged.connect(self._on_search)
         layout.addWidget(self.search_box)
 
+        # ABRSM grade 5-6 is this project's long-term TARGET (see
+        # ARCHITECTURE.md), not where a beginner should start — real
+        # feedback (2026-08-12, see docs/STATUS.md): a first-time user
+        # was shown a grade 6 piece by default and it looked "super
+        # advanced" because it is. Without this, there was no way to
+        # pick an appropriate starting level at all.
+        grade_row = QHBoxLayout()
+        grade_row.addWidget(QLabel("ABRSM grade:"))
+        self.min_grade_spin = QSpinBox()
+        self.min_grade_spin.setRange(0, 10)
+        self.min_grade_spin.setValue(1)
+        self.min_grade_spin.valueChanged.connect(self._on_grade_range_changed)
+        grade_row.addWidget(self.min_grade_spin)
+        grade_row.addWidget(QLabel("to"))
+        self.max_grade_spin = QSpinBox()
+        self.max_grade_spin.setRange(0, 10)
+        self.max_grade_spin.setValue(2)
+        self.max_grade_spin.valueChanged.connect(self._on_grade_range_changed)
+        grade_row.addWidget(self.max_grade_spin)
+        layout.addLayout(grade_row)
+
         self.results_list = QListWidget()
         self.results_list.itemSelectionChanged.connect(self._on_select)
         layout.addWidget(self.results_list)
@@ -252,16 +274,30 @@ class MainWindow(QMainWindow):
             return
         self._entries = load_catalog(metadata_path)
         self.status_label.setText(
-            f"{len(self._entries)} pieces loaded. Showing ABRSM grade 5-6 by default — search to narrow."
+            f"{len(self._entries)} pieces loaded. Showing ABRSM grade "
+            f"{self.min_grade_spin.value()}-{self.max_grade_spin.value()} — search or change the grade to narrow."
         )
-        self._show_entries(filter_by_grade(self._entries, "ABRSM", 5, 6))
+        self._show_entries(self._graded_entries())
+
+    def _graded_entries(self) -> list[CatalogEntry]:
+        return filter_by_grade(
+            self._entries, "ABRSM", self.min_grade_spin.value(), self.max_grade_spin.value()
+        )
+
+    def _on_grade_range_changed(self) -> None:
+        if self.min_grade_spin.value() > self.max_grade_spin.value():
+            self.max_grade_spin.setValue(self.min_grade_spin.value())
+            return  # setValue above re-triggers this handler once more, cleanly
+        logger.info("Grade range changed: %d-%d", self.min_grade_spin.value(), self.max_grade_spin.value())
+        if len(self.search_box.text()) < 2:
+            self._show_entries(self._graded_entries())
 
     def _on_search(self, text: str) -> None:
         if len(text) < 2:
-            # empty/too-short search: fall back to the default grade 5-6
+            # empty/too-short search: fall back to the grade-filtered
             # list instead of an empty results pane — an app that looks
             # empty on open reads as broken, not "type something".
-            self._show_entries(filter_by_grade(self._entries, "ABRSM", 5, 6))
+            self._show_entries(self._graded_entries())
             return
         self._show_entries(search(self._entries, text)[:50])
 
