@@ -19,7 +19,8 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 import mido
-from mido.ports import MultiPort
+
+POLL_INTERVAL_SECONDS = 0.001
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,19 +67,32 @@ def translate(message: mido.Message, timestamp: float, port: str) -> Event | Non
 class MidiSession:
     """Opens one or more MIDI input ports and yields translated events in
     arrival order, merged, with wall-clock timestamps assigned on receipt.
+
+    Polls each port's `iter_pending()` in a round-robin loop instead of
+    using `mido.ports.MultiPort` — verified against real hardware
+    (2026-08-12, see docs/STATUS.md) that MultiPort never delivers a
+    single event in blocking mode: `_receive(block=True)` feeds
+    `multi_receive()`'s generator (which loops forever when block=True)
+    into `deque.extend()`, which can't return until the generator raises
+    StopIteration — an infinite generator never does, so the call hangs
+    forever on the very first receive and no event is ever yielded. A
+    plain polling loop over `iter_pending()` (confirmed working directly
+    against real hardware) sidesteps the bug entirely.
     """
 
     def __init__(self, port_names: list[str]) -> None:
         if not port_names:
             raise ValueError("MidiSession needs at least one port name")
         self._ports = [mido.open_input(name) for name in port_names]
-        self._multi = MultiPort(self._ports, yield_ports=True)
 
     def listen(self) -> Iterator[Event]:
-        for port, message in self._multi:
-            event = translate(message, time.monotonic(), port=port.name)
-            if event is not None:
-                yield event
+        while True:
+            for port in self._ports:
+                for message in port.iter_pending():
+                    event = translate(message, time.monotonic(), port=port.name)
+                    if event is not None:
+                        yield event
+            time.sleep(POLL_INTERVAL_SECONDS)
 
     def close(self) -> None:
         for port in self._ports:
