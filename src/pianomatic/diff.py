@@ -132,6 +132,47 @@ def extract_performed_notes(
     return notes
 
 
+DEFAULT_SAVED_NOTE_DURATION_SECONDS = 0.1
+
+
+def save_performed_notes(
+    notes: list[PerformedNote],
+    path: str | os.PathLike,
+    note_duration_seconds: float = DEFAULT_SAVED_NOTE_DURATION_SECONDS,
+) -> None:
+    """Writes captured performed notes (from a live `session.PracticeSession`)
+    to a standard MIDI file, so a live practice session can feed the same
+    `compare()` pipeline used for pre-recorded files — no separate live
+    scoring path to build and verify.
+
+    Only onset time and velocity are recorded by `session.py` (no
+    duration), so this synthesizes a fixed-length note_off for each note.
+    That's fine for our own `extract_performed_notes`, which only reads
+    note_on messages and ignores note_off/duration entirely.
+    """
+    midi_file = mido.MidiFile()
+    track = mido.MidiTrack()
+    midi_file.tracks.append(track)
+
+    events = []  # (time_seconds, is_note_on, note, velocity)
+    for n in notes:
+        events.append((n.time, True, n.pitch, n.velocity))
+        events.append((n.time + note_duration_seconds, False, n.pitch, 0))
+    events.sort(key=lambda e: (e[0], not e[1]))  # note_off before note_on at the same instant
+
+    last_time = 0.0
+    for time_seconds, is_on, pitch, velocity in events:
+        delta_ticks = int(mido.second2tick(time_seconds - last_time, midi_file.ticks_per_beat, mido.bpm2tempo(120)))
+        track.append(
+            mido.Message(
+                "note_on" if is_on else "note_off", note=pitch, velocity=velocity, time=delta_ticks
+            )
+        )
+        last_time = time_seconds
+
+    midi_file.save(str(path))
+
+
 def match_notes(
     reference: list[ReferenceNote],
     performed: list[PerformedNote],

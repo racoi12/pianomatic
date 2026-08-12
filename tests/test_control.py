@@ -63,3 +63,40 @@ def test_note_outside_mapping_does_not_fire():
     unmapped_note = max(ctl._position_map) + 1
     ctl.handle_note_on(unmapped_note, 100)
     assert fired == []
+
+
+def test_anchor_press_and_release_are_consumed():
+    ctl, _ = _control()
+    assert ctl.handle_note_on(LOW, 100) is True
+    assert ctl.handle_note_on(HIGH, 100) is True
+    assert ctl.handle_note_off(LOW) is True
+    assert ctl.handle_note_off(HIGH) is True
+
+
+def test_ordinary_note_outside_armed_mode_is_not_consumed():
+    ctl, _ = _control()
+    assert ctl.handle_note_on(60, 100) is False
+    assert ctl.handle_note_off(60) is False
+
+
+def test_any_note_while_armed_is_consumed_even_if_unmapped():
+    ctl, fired = _control(commands=["only_one"])
+    ctl.handle_note_on(LOW, 100)
+    ctl.handle_note_on(HIGH, 100)
+    unmapped_note = max(ctl._position_map) + 1
+    assert ctl.handle_note_on(unmapped_note, 100) is True
+    assert fired == []  # consumed, but didn't fire since it's not mapped
+
+
+def test_release_of_consumed_note_is_also_consumed():
+    ctl, _ = _control()
+    ctl.handle_note_on(LOW, 100)
+    ctl.handle_note_on(HIGH, 100)
+    command_note = next(iter(ctl._position_map))
+    ctl.handle_note_on(command_note, 100)
+    assert ctl.handle_note_off(command_note) is True
+
+
+def test_release_of_note_never_pressed_is_not_consumed():
+    ctl, _ = _control()
+    assert ctl.handle_note_off(60) is False

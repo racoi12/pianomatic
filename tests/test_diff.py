@@ -14,7 +14,9 @@ from pianomatic.diff import (
     PerformedNote,
     ReferenceNote,
     align,
+    extract_performed_notes,
     match_notes,
+    save_performed_notes,
 )
 
 
@@ -97,3 +99,25 @@ def test_each_performed_note_used_at_most_once():
     result = match_notes(reference, performed, _IDENTITY_ALIGNMENT, tolerance_seconds=0.5)
     assert len(result.matched) == 1
     assert len(result.missed) == 1
+
+
+def test_save_then_extract_performed_notes_roundtrips(tmp_path):
+    notes = [
+        PerformedNote(pitch=60, time=0.0, velocity=90),
+        PerformedNote(pitch=64, time=0.5, velocity=100),
+        PerformedNote(pitch=67, time=1.234, velocity=80),
+    ]
+    path = tmp_path / "session.mid"
+    save_performed_notes(notes, path)
+    recovered = extract_performed_notes(path)
+
+    assert [n.pitch for n in recovered] == [n.pitch for n in notes]
+    assert [n.velocity for n in recovered] == [n.velocity for n in notes]
+    for original, got in zip(notes, recovered):
+        assert got.time == pytest.approx(original.time, abs=0.01)
+
+
+def test_save_performed_notes_handles_empty_list(tmp_path):
+    path = tmp_path / "empty.mid"
+    save_performed_notes([], path)
+    assert extract_performed_notes(path) == []

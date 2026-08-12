@@ -130,6 +130,31 @@ i18n genérico para un texto que va a dejar de ser user-facing.
   los tests en vez de duplicar los literales.
 - [ ] Módulos de lectura a primera vista y oído: aún no empezados,
   ver ARCHITECTURE.md para qué reutilizar.
+- [x] `control.py` API change: `handle_note_on`/`handle_note_off` now
+  return `bool` (consumed by the control layer or not) instead of `None`.
+  Rule: while armed, EVERY note is consumed (not just mapped commands) —
+  the user's hands are pinning both anchors, they're not playing real
+  music at that moment. Note-off of a consumed note is tracked via a
+  `_suppressed` set so it's consumed too even after the anchors release.
+  Also fully translated to English while touching the whole file (see
+  the English-translation item below — one file down).
+- [x] `session.py`: `PracticeSession` routes a live event stream between
+  the control layer and performance recording — the missing link between
+  `midi_io` (capture) and `diff`/`control` (which existed in isolation
+  until now). 7 tests, synthetic events, no hardware needed.
+- [x] `diff.save_performed_notes()`: writes a live-captured session to a
+  real MIDI file so it can feed the existing `compare()` pipeline instead
+  of needing a separate live-scoring code path. Round-trip tested
+  (save then `extract_performed_notes` recovers the same notes).
+- [x] `cli.py practice` command: wires `MidiSession` + `PracticeSession` +
+  `save_performed_notes` + `compare` end-to-end. **NOT verified against
+  real hardware** — coordinating live key presses over a chat turn proved
+  impractical earlier this session (see the keyboard-range calibration
+  exchange), so this is implemented and import-checked but not run for
+  real. Each piece it wires IS independently tested. Next session: run it
+  against the actual Keystation and fix whatever the real hardware run
+  surfaces (there will likely be something — first real-world run always
+  finds something a synthetic test didn't).
 - [ ] Sustain pedal (CC64) support in `midi_io.py` + diff engine, and
   multi-port MIDI merging (see docs/ARCHITECTURE.md, "Sustain pedal") —
   verify with real hardware whether the Keystation 61es reports half-pedal
