@@ -11,8 +11,10 @@ reason.
 
 from __future__ import annotations
 
+import logging
 import sys
 import tempfile
+import traceback
 from pathlib import Path
 
 import mido
@@ -48,6 +50,47 @@ from pianomatic.session import PracticeSession
 
 STOP_COMMAND = "stop"
 
+LOG_PATH = DEFAULT_DATA_DIR.parent / "gui.log"
+
+logger = logging.getLogger("pianomatic.gui")
+
+
+def setup_logging() -> None:
+    """Logs to a persistent file (survives across runs, readable after
+    the process is gone — e.g. over SSH after a crash) AND stdout.
+
+    Real bug this fixes (2026-08-12, see docs/STATUS.md): the app closed
+    silently when selecting the Keystation port, with only
+    'QThread: Destroyed while thread '' is still running' in the
+    redirected stdout log — Qt/PySide's C++ layer had swallowed whatever
+    Python exception actually caused it. `install_excepthook` below is
+    the other half of the fix: it's what actually surfaces exceptions
+    raised inside Qt slots, which PySide6 does not always propagate as a
+    normal Python exception.
+    """
+    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        handlers=[logging.FileHandler(LOG_PATH), logging.StreamHandler()],
+    )
+
+
+def install_excepthook() -> None:
+    """PySide6 does not reliably propagate exceptions raised inside a Qt
+    slot as a normal Python exception — depending on the Qt event that
+    triggered the slot, they can be silently swallowed, which is exactly
+    what made the original crash unfixable from the stdout log alone
+    (see docs/STATUS.md, 2026-08-12). `sys.excepthook` is the one hook
+    that's actually reached in both cases.
+    """
+
+    def handle(exc_type, exc_value, exc_traceback):
+        logger.error("Unhandled exception:\n%s", "".join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+
+    sys.excepthook = handle
+
 
 def entry_label(entry: CatalogEntry) -> str:
     """Pure, tested: how a catalog entry shows up in the results list."""
@@ -71,9 +114,11 @@ class PracticeWorker(QObject):
         self._stop_requested = False
 
     def run(self) -> None:
+        logger.info("PracticeWorker starting: score=%s port=%r", self._score_path, self._port_name)
         try:
             self._run()
         except Exception as e:  # noqa: BLE001 - surfaced to the UI, not swallowed
+            logger.error("PracticeWorker failed:\n%s", traceback.format_exc())
             self.error.emit(str(e))
 
     def _run(self) -> None:
@@ -133,7 +178,9 @@ class MainWindow(QMainWindow):
         control_row = QHBoxLayout()
         control_row.addWidget(QLabel("MIDI port:"))
         self.port_combo = QComboBox()
-        self.port_combo.addItems(mido.get_input_names())
+        port_names = mido.get_input_names()
+        logger.info("MIDI input ports detected: %r", port_names)
+        self.port_combo.addItems(port_names)
         control_row.addWidget(self.port_combo)
         self.practice_button = QPushButton("Practice")
         self.practice_button.setEnabled(False)
@@ -183,13 +230,28 @@ class MainWindow(QMainWindow):
     def _on_select(self) -> None:
         items = self.results_list.selectedItems()
         self._selected_entry = items[0].data(1) if items else None
+        logger.info("Selected: %s", self._selected_entry.key if self._selected_entry else None)
         self.practice_button.setEnabled(self._selected_entry is not None)
 
     def _start_practice(self) -> None:
+        try:
+            self._start_practice_impl()
+        except Exception:
+            logger.error("_start_practice failed:\n%s", traceback.format_exc())
+            self.status_label.setText("Error starting practice — see gui.log")
+            self.practice_button.setEnabled(True)
+            raise
+
+    def _start_practice_impl(self) -> None:
         if not self._selected_entry or not self.port_combo.currentText():
+            logger.warning(
+                "Practice clicked with no selection: entry=%s port=%r",
+                self._selected_entry, self.port_combo.currentText(),
+            )
             return
         score_path = str(resolve_midi_path(self._selected_entry, self._data_dir))
         port_name = self.port_combo.currentText()
+        logger.info("Starting practice: score_path=%s port=%r", score_path, port_name)
 
         self.practice_button.setEnabled(False)
         self.report_view.clear()
@@ -206,17 +268,23 @@ class MainWindow(QMainWindow):
         self._thread.start()
 
     def _on_finished(self, report_text: str) -> None:
+        logger.info("Practice finished, report:\n%s", report_text)
         self.status_label.setText("Done.")
         self.report_view.setPlainText(report_text)
         self.practice_button.setEnabled(True)
 
     def _on_error(self, message: str) -> None:
+        logger.error("Practice error signal: %s", message)
         self.status_label.setText(f"Error: {message}")
         self.practice_button.setEnabled(True)
 
 
 def main() -> None:
     from PySide6.QtWidgets import QApplication
+
+    setup_logging()
+    install_excepthook()
+    logger.info("pianomatic-gui starting")
 
     app = QApplication(sys.argv)
     window = MainWindow()
