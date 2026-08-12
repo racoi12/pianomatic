@@ -194,6 +194,7 @@ class MainWindow(QMainWindow):
         self._selected_entry: CatalogEntry | None = None
         self._thread: QThread | None = None
         self._worker: PracticeWorker | None = None
+        self._practice_active = False
         self.resize(1300, 750)
 
         splitter = QSplitter()
@@ -279,7 +280,15 @@ class MainWindow(QMainWindow):
         items = self.results_list.selectedItems()
         self._selected_entry = items[0].data(1) if items else None
         logger.info("Selected: %s", self._selected_entry.key if self._selected_entry else None)
-        self.practice_button.setEnabled(self._selected_entry is not None)
+        # Real bug (2026-08-12, see docs/STATUS.md): this used to
+        # unconditionally re-enable the button on every selection, which
+        # let a user start a SECOND practice session while the first was
+        # still running (still listening for MIDI, never stopped) —
+        # overwriting self._thread/self._worker while the old QThread
+        # was still alive, the same Qt6-aborts-on-still-running-QThread
+        # crash as the close-mid-session bug, just triggered a different
+        # way. Must also check practice isn't already active.
+        self.practice_button.setEnabled(self._selected_entry is not None and not self._practice_active)
         if self._selected_entry is not None:
             self._show_sheet_music(self._selected_entry)
 
@@ -320,10 +329,17 @@ class MainWindow(QMainWindow):
                 self._selected_entry, self.port_combo.currentText(),
             )
             return
+        if self._practice_active:
+            # Defensive: _on_select() is what's supposed to prevent this
+            # (see the comment there), this is a second line of defense
+            # against the exact crash that comment describes.
+            logger.warning("Practice already active, ignoring duplicate start request")
+            return
         score_path = str(resolve_midi_path(self._selected_entry, self._data_dir))
         port_name = self.port_combo.currentText()
         logger.info("Starting practice: score_path=%s port=%r", score_path, port_name)
 
+        self._practice_active = True
         self.practice_button.setEnabled(False)
         self.report_view.clear()
 
@@ -340,12 +356,14 @@ class MainWindow(QMainWindow):
 
     def _on_finished(self, report_text: str) -> None:
         logger.info("Practice finished, report:\n%s", report_text)
+        self._practice_active = False
         self.status_label.setText("Done.")
         self.report_view.setPlainText(report_text)
         self.practice_button.setEnabled(True)
 
     def _on_error(self, message: str) -> None:
         logger.error("Practice error signal: %s", message)
+        self._practice_active = False
         self.status_label.setText(f"Error: {message}")
         self.practice_button.setEnabled(True)
 
