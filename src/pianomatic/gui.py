@@ -12,6 +12,9 @@ reason.
 from __future__ import annotations
 
 import logging
+import os
+import shutil
+import subprocess
 import sys
 import tempfile
 import traceback
@@ -246,6 +249,16 @@ class MainWindow(QMainWindow):
         self.practice_button.setEnabled(False)
         self.practice_button.clicked.connect(self._start_practice)
         control_row.addWidget(self.practice_button)
+        # Real user need (2026-08-12, see docs/STATUS.md): sheet music
+        # alone doesn't help someone who can't read notation yet. Rather
+        # than build a falling-notes view from scratch, PianoBooster
+        # (already installed, already fixed earlier this session) does
+        # exactly that already — this button just opens the SAME piece
+        # there instead of making the user hunt down the file manually.
+        self.pianobooster_button = QPushButton("Open in PianoBooster")
+        self.pianobooster_button.setEnabled(False)
+        self.pianobooster_button.clicked.connect(self._open_in_pianobooster)
+        control_row.addWidget(self.pianobooster_button)
         layout.addLayout(control_row)
 
         self.status_label = QLabel("Loading catalog...")
@@ -325,8 +338,30 @@ class MainWindow(QMainWindow):
         # crash as the close-mid-session bug, just triggered a different
         # way. Must also check practice isn't already active.
         self.practice_button.setEnabled(self._selected_entry is not None and not self._practice_active)
+        self.pianobooster_button.setEnabled(self._selected_entry is not None)
         if self._selected_entry is not None:
             self._show_sheet_music(self._selected_entry)
+
+    def _open_in_pianobooster(self) -> None:
+        if not self._selected_entry:
+            return
+        pianobooster_path = shutil.which("pianobooster")
+        if not pianobooster_path:
+            logger.error("pianobooster not found on PATH")
+            self.status_label.setText("PianoBooster not found — is it installed?")
+            return
+        midi_path = resolve_midi_path(self._selected_entry, self._data_dir)
+        logger.info("Opening in PianoBooster: %s", midi_path)
+        # Inherits this process's display/session environment -- no need
+        # for the XAUTHORITY/DISPLAY dance an SSH-launched process needs,
+        # this runs from inside the already-running GUI session.
+        # QT_QPA_PLATFORM=xcb: PianoBooster flickers under native Wayland
+        # on this machine (fixed earlier this session via a .desktop
+        # override, see docs/piano_midi_keystation.md memory) -- launching
+        # the raw binary here bypasses that .desktop file, so the same
+        # override has to be applied directly.
+        env = {**os.environ, "QT_QPA_PLATFORM": "xcb"}
+        subprocess.Popen([pianobooster_path, str(midi_path)], env=env)
 
     def _show_sheet_music(self, entry: CatalogEntry) -> None:
         midi_path = resolve_midi_path(entry, self._data_dir)
